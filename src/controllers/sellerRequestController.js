@@ -1,378 +1,163 @@
-// const SellerRequest = require("../models/SellerRequest");
-// const User = require("../models/User");
-// const createNotification = require("../utils/notificationHelper");
-
-// // Submit seller request
-// const submitRequest = async (req, res) => {
-//   try {
-//     const { businessType, ...data } = req.body;
-//     const userId = req.user._id;
-//     const user = await User.findById(userId);
-//     if (user.isSeller)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Already a seller" });
-//     if (user.sellerRequestPending)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Request already pending" });
-
-//     const documents = {};
-//     if (req.files) {
-//       if (req.files.nationalId)
-//         documents.nationalId = `/uploads/${req.files.nationalId[0].filename}`;
-//       if (req.files.passport)
-//         documents.passport = `/uploads/${req.files.passport[0].filename}`;
-//       if (req.files.utilityBill)
-//         documents.utilityBill = `/uploads/${req.files.utilityBill[0].filename}`;
-//       if (req.files.businessLicense)
-//         documents.businessLicense = `/uploads/${req.files.businessLicense[0].filename}`;
-//       if (req.files.tinCertificate)
-//         documents.tinCertificate = `/uploads/${req.files.tinCertificate[0].filename}`;
-//     }
-
-//     const requestData = {
-//       user: userId,
-//       businessType,
-//       ...data,
-//       documents,
-//       status: "pending",
-//     };
-//     const request = await SellerRequest.create(requestData);
-
-//     user.sellerRequestPending = true;
-//     user.sellerRequestId = request._id;
-//     await user.save();
-
-//     // Notify admins
-//     const admins = await User.find({ role: "admin" });
-//     const io = req.app.get("io");
-//     for (const admin of admins) {
-//       await createNotification(
-//         admin._id,
-//         "system",
-//         "New Seller Verification Request",
-//         `${user.name} wants to become a seller.`,
-//         { requestId: request._id },
-//         io,
-//       );
-//     }
-
-//     res.json({ success: true, message: "Request submitted" });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
-// // Get all seller requests (admin)
-// const getAllRequests = async (req, res) => {
-//   const requests = await SellerRequest.find().populate(
-//     "user",
-//     "name email phone",
-//   );
-//   res.json({ success: true, requests });
-// };
-
-// // Approve request (admin)
-// const approveRequest = async (req, res) => {
-//   const { requestId } = req.params;
-//   const request = await SellerRequest.findById(requestId);
-//   if (!request) return res.status(404).json({ success: false });
-//   request.status = "approved";
-//   request.reviewedAt = new Date();
-//   await request.save();
-
-//   const user = await User.findById(request.user);
-//   user.isSeller = true;
-//   user.sellerRequestPending = false;
-//   user.sellerRequestId = null;
-//   await user.save();
-
-//   // Notify user
-//   const io = req.app.get("io");
-//   await createNotification(
-//     user._id,
-//     "system",
-//     "Seller Request Approved",
-//     "You can now list products.",
-//     null,
-//     io,
-//   );
-
-//   res.json({ success: true });
-// };
-
-// // Reject request (admin)
-// const rejectRequest = async (req, res) => {
-//   const { requestId } = req.params;
-//   const { adminNote } = req.body;
-//   const request = await SellerRequest.findById(requestId);
-//   if (!request) return res.status(404).json({ success: false });
-//   request.status = "rejected";
-//   request.adminNote = adminNote;
-//   request.reviewedAt = new Date();
-//   await request.save();
-
-//   const user = await User.findById(request.user);
-//   user.sellerRequestPending = false;
-//   user.sellerRequestId = null;
-//   await user.save();
-
-//   // Notify user
-//   const io = req.app.get("io");
-//   await createNotification(
-//     user._id,
-//     "system",
-//     "Seller Request Rejected",
-//     adminNote || "Your request was rejected.",
-//     null,
-//     io,
-//   );
-
-//   res.json({ success: true });
-// };
-
-// //   try {
-// //     const { businessType, ...data } = req.body;
-// //     const userId = req.user._id;
-// //     const user = await User.findById(userId);
-// //     if (user.isSeller)
-// //       return res
-// //         .status(400)
-// //         .json({ success: false, message: "Already a seller" });
-// //     if (user.sellerRequestPending)
-// //       return res
-// //         .status(400)
-// //         .json({ success: false, message: "Request already pending" });
-
-// //     const documents = {};
-// //     const fileFields = [
-// //       "nationalId",
-// //       "passport",
-// //       "utilityBill",
-// //       "businessLicense",
-// //       "tinCertificate",
-// //     ];
-// //     fileFields.forEach((field) => {
-// //       if (req.files && req.files[field]) {
-// //         documents[field] = `/uploads/${req.files[field][0].filename}`;
-// //       }
-// //     });
-
-// //     const requestData = {
-// //       user: userId,
-// //       businessType,
-// //       ...data,
-// //       documents,
-// //       status: "pending",
-// //     };
-// //     const request = await SellerRequest.create(requestData);
-
-// //     user.sellerRequestPending = true;
-// //     user.sellerRequestId = request._id;
-// //     await user.save();
-
-// //     // Notify all admins
-// //     const admins = await User.find({ role: "admin" });
-// //     const io = req.app.get("io");
-// //     for (const admin of admins) {
-// //       await createNotification(
-// //         admin._id,
-// //         "system",
-// //         "New Seller Verification Request",
-// //         `${user.name} wants to become a seller.`,
-// //         { requestId: request._id },
-// //         io,
-// //       );
-// //     }
-
-// //     res.json({
-// //       success: true,
-// //       message: "Request submitted. You will be notified when reviewed.",
-// //     });
-// //   } catch (error) {
-// //     console.error(error);
-// //     res.status(500).json({ success: false, message: error.message });
-// //   }
-// // };
-
-// const getRequests = async (req, res) => {
-//   const requests = await SellerRequest.find()
-//     .populate("user", "name email phone")
-//     .sort({ createdAt: -1 });
-//   res.json({ success: true, requests });
-// };
-
-// const updateRequestStatus = async (req, res) => {
-//   const { requestId } = req.params;
-//   const { status, adminNote } = req.body;
-//   const request = await SellerRequest.findById(requestId);
-//   if (!request) return res.status(404).json({ success: false });
-//   request.status = status;
-//   if (adminNote) request.adminNote = adminNote;
-//   request.reviewedAt = new Date();
-//   if (status === "more_info_needed") {
-//     request.adminComments.push({ comment: adminNote });
-//   }
-//   await request.save();
-
-//   if (status === "approved") {
-//     const user = await User.findById(request.user);
-//     user.isSeller = true;
-//     user.sellerRequestPending = false;
-//     user.sellerRequestId = null;
-//     await user.save();
-//   } else if (status === "rejected" || status === "more_info_needed") {
-//     const user = await User.findById(request.user);
-//     user.sellerRequestPending = true; // still pending but needs action
-//     await user.save();
-//   }
-
-//   // Notify user
-//   const io = req.app.get("io");
-//   let title, message;
-//   if (status === "approved") title = "Seller Request Approved";
-//   else if (status === "rejected") title = "Seller Request Rejected";
-//   else title = "Additional Information Required";
-//   message = adminNote || `Your seller request has been ${status}.`;
-//   await createNotification(
-//     request.user,
-//     "system",
-//     title,
-//     message,
-//     { requestId: request._id },
-//     io,
-//   );
-
-//   res.json({ success: true });
-// };
-
-// module.exports = {
-//   submitRequest,
-//   getAllRequests,
-//   approveRequest,
-//   rejectRequest,
-//   submitRequest,
-//   getRequests,
-//   updateRequestStatus,
-// };
 const SellerRequest = require("../models/SellerRequest");
 const User = require("../models/User");
 const createNotification = require("../utils/notificationHelper");
+const cloudinary = require("../config/cloudinary");
 
+// Helper: upload a single file buffer to Cloudinary
+const uploadDocToCloudinary = (buffer, folder) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      },
+    );
+    uploadStream.end(buffer);
+  });
+};
+
+// Submit seller request
 const submitRequest = async (req, res) => {
   try {
     const { businessType, ...data } = req.body;
     const userId = req.user._id;
     const user = await User.findById(userId);
-    if (user.isSeller)
+
+    if (user.isSeller) {
       return res
         .status(400)
         .json({ success: false, message: "Already a seller" });
-    if (user.sellerRequestPending)
+    }
+    if (user.sellerRequestPending) {
       return res
         .status(400)
         .json({ success: false, message: "Request already pending" });
-
-    const documents = {};
-    if (req.files) {
-      if (req.files.nationalId)
-        documents.nationalId = `/uploads/${req.files.nationalId[0].filename}`;
-      if (req.files.passport)
-        documents.passport = `/uploads/${req.files.passport[0].filename}`;
-      if (req.files.utilityBill)
-        documents.utilityBill = `/uploads/${req.files.utilityBill[0].filename}`;
-      if (req.files.businessLicense)
-        documents.businessLicense = `/uploads/${req.files.businessLicense[0].filename}`;
-      if (req.files.tinCertificate)
-        documents.tinCertificate = `/uploads/${req.files.tinCertificate[0].filename}`;
-      if (req.files.selfie)
-        documents.selfie = `/uploads/${req.files.selfie[0].filename}`;
     }
 
-    const request = await SellerRequest.create({
+    // Upload all documents to Cloudinary
+    const documents = {};
+    if (req.files) {
+      const folder = `seller_requests/${userId}`;
+      for (const [field, files] of Object.entries(req.files)) {
+        if (files && files[0]) {
+          const result = await uploadDocToCloudinary(files[0].buffer, folder);
+          documents[field] = result.secure_url;
+        }
+      }
+    }
+
+    const requestData = {
       user: userId,
       businessType,
       ...data,
       documents,
       status: "pending",
-    });
+    };
+    const request = await SellerRequest.create(requestData);
 
     user.sellerRequestPending = true;
     user.sellerRequestId = request._id;
     await user.save();
 
+    // Notify admins
     const admins = await User.find({ role: "admin" });
     const io = req.app.get("io");
     for (const admin of admins) {
       await createNotification(
         admin._id,
         "system",
-        "New Seller Request",
+        "New Seller Verification Request",
         `${user.name} wants to become a seller.`,
         { requestId: request._id },
         io,
       );
     }
 
-    res.json({ success: true, message: "Request submitted" });
+    res.json({
+      success: true,
+      message: "Request submitted. You will be notified when reviewed.",
+    });
   } catch (error) {
-    console.error(error);
+    console.error("Submit request error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// Get all requests (admin)
 const getRequests = async (req, res) => {
-  const requests = await SellerRequest.find()
-    .populate("user", "name email phone")
-    .sort({ createdAt: -1 });
-  res.json({ success: true, requests });
+  try {
+    const requests = await SellerRequest.find()
+      .populate("user", "name email phone")
+      .sort({ createdAt: -1 });
+    res.json({ success: true, requests });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
+// Update request status (admin)
 const updateRequestStatus = async (req, res) => {
-  const { requestId } = req.params;
-  const { status, adminNote } = req.body;
-  const request = await SellerRequest.findById(requestId);
-  if (!request) return res.status(404).json({ success: false });
-  request.status = status;
-  if (adminNote) request.adminNote = adminNote;
-  request.reviewedAt = new Date();
-  if (status === "more_info_needed") {
-    request.adminComments = request.adminComments || [];
-    request.adminComments.push({ comment: adminNote, createdAt: new Date() });
-  }
-  await request.save();
+  try {
+    const { requestId } = req.params;
+    const { status, adminNote } = req.body;
+    const request = await SellerRequest.findById(requestId);
+    if (!request) return res.status(404).json({ success: false });
 
-  if (status === "approved") {
+    request.status = status;
+    if (adminNote) request.adminNote = adminNote;
+    request.reviewedAt = new Date();
+    if (status === "more_info_needed") {
+      request.adminComments = request.adminComments || [];
+      request.adminComments.push({ comment: adminNote, createdAt: new Date() });
+    }
+    await request.save();
+
     const user = await User.findById(request.user);
-    user.isSeller = true;
-    user.sellerRequestPending = false;
-    user.sellerRequestId = null;
+    if (status === "approved") {
+      user.isSeller = true;
+      user.sellerRequestPending = false;
+      user.sellerRequestId = null;
+    } else if (status === "rejected" || status === "more_info_needed") {
+      user.sellerRequestPending = false;
+      user.sellerRequestId = null;
+    }
     await user.save();
-  } else if (status === "rejected" || status === "more_info_needed") {
-    const user = await User.findById(request.user);
-    user.sellerRequestPending = false; // so they can reapply if needed
-    user.sellerRequestId = null;
-    await user.save();
+
+    const io = req.app.get("io");
+    let title, message;
+    if (status === "approved") {
+      title = "Seller Request Approved";
+      message =
+        adminNote || "Congratulations! Your seller request has been approved.";
+    } else if (status === "rejected") {
+      title = "Seller Request Rejected";
+      message =
+        adminNote ||
+        "Your seller request was rejected. Please contact support for details.";
+    } else {
+      title = "Additional Information Required";
+      message =
+        adminNote || "Please provide more information for your seller request.";
+    }
+    await createNotification(
+      request.user,
+      "system",
+      title,
+      message,
+      { requestId: request._id },
+      io,
+    );
+
+    res.json({ success: true, message: "Request status updated" });
+  } catch (error) {
+    console.error("Update request status error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
-
-  const io = req.app.get("io");
-  let title, message;
-  if (status === "approved") title = "Seller Request Approved";
-  else if (status === "rejected") title = "Seller Request Rejected";
-  else title = "Additional Information Required";
-  message = adminNote || `Your seller request has been ${status}.`;
-  await createNotification(
-    request.user,
-    "system",
-    title,
-    message,
-    { requestId: request._id },
-    io,
-  );
-
-  res.json({ success: true });
 };
 
-module.exports = { submitRequest, getRequests, updateRequestStatus };
+module.exports = {
+  submitRequest,
+  getRequests,
+  updateRequestStatus,
+};

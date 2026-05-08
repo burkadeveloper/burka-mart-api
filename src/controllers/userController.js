@@ -1,83 +1,107 @@
 const User = require("../models/User");
 const Wallet = require("../models/Wallet");
 const bcrypt = require("bcryptjs");
-const cloudinary = require("../config/cloudinary");
+const { uploadSingleImage } = require("../utils/uploadHelper");
 
-// @desc Get logged-in user profile
+// @desc    Get logged-in user profile
+// @route   GET /api/users/profile
 const getProfile = async (req, res) => {
-  const user = await User.findById(req.user._id).select(
-    "-password -refreshToken",
-  );
-  const wallet = await Wallet.findOne({ user: req.user._id });
-  res.json({ success: true, user, wallet });
+  try {
+    const user = await User.findById(req.user._id).select(
+      "-password -refreshToken",
+    );
+    const wallet = await Wallet.findOne({ user: req.user._id });
+    res.json({ success: true, user, wallet });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
-// @desc Update profile (name, phone, location)
+// @desc    Update profile (name, phone, location)
+// @route   PUT /api/users/profile
 const updateProfile = async (req, res) => {
-  const allowed = ["name", "phone", "location"];
-  const updates = {};
-  allowed.forEach((field) => {
-    if (req.body[field] !== undefined) updates[field] = req.body[field];
-  });
-  const user = await User.findByIdAndUpdate(req.user._id, updates, {
-    new: true,
-  }).select("-password");
-  res.json({ success: true, user });
+  try {
+    const { name, phone, location } = req.body;
+    const updates = {};
+    if (name) updates.name = name;
+    if (phone) updates.phone = phone;
+    if (location) updates.location = location;
+    const user = await User.findByIdAndUpdate(req.user._id, updates, {
+      new: true,
+    }).select("-password");
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
-// @desc Change password
+// @desc    Change password
+// @route   PUT /api/users/password
 const updatePassword = async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  const user = await User.findById(req.user._id);
-  const isMatch = await user.comparePassword(currentPassword);
-  if (!isMatch)
-    return res
-      .status(400)
-      .json({ success: false, message: "Current password incorrect" });
-  user.password = newPassword;
-  await user.save();
-  res.json({ success: true, message: "Password updated" });
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id);
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Current password is incorrect" });
+    }
+    user.password = newPassword;
+    await user.save();
+    res.json({ success: true, message: "Password updated successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
-// @desc Become a seller
+// @desc    Become a seller (initiate request – admin approval required)
+// @route   POST /api/users/become-seller
 const becomeSeller = async (req, res) => {
-  const user = await User.findById(req.user._id);
-  if (user.isSeller)
+  try {
+    const user = await User.findById(req.user._id);
+    if (user.isSeller) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Already a seller" });
+    }
+    if (user.sellerRequestPending) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Request already pending" });
+    }
+    // Here we don't directly set isSeller = true; instead, the user must go through the seller request form.
+    // This endpoint can be used to trigger the request flow.
     return res
       .status(400)
-      .json({ success: false, message: "Already a seller" });
-  user.isSeller = true;
-  await user.save();
-  res.json({ success: true, message: "You are now a seller" });
+      .json({
+        success: false,
+        message: "Please use the seller request form to apply",
+      });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
-// @desc Get seller public profile (for product page)
+// @desc    Get seller public profile (for product page)
+// @route   GET /api/users/seller/:sellerId
 const getSellerProfile = async (req, res) => {
-  const seller = await User.findById(req.params.sellerId).select(
-    "name profilePicture location phone createdAt",
-  );
-  if (!seller) return res.status(404).json({ success: false });
-  res.json({ success: true, seller });
+  try {
+    const seller = await User.findById(req.params.sellerId).select(
+      "name profilePicture location phone createdAt",
+    );
+    if (!seller)
+      return res
+        .status(404)
+        .json({ success: false, message: "Seller not found" });
+    res.json({ success: true, seller });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
-// @desc Upload profile picture
-// const uploadProfilePicture = async (req, res) => {
-//   if (!req.file)
-//     return res
-//       .status(400)
-//       .json({ success: false, message: "No file uploaded" });
-//   const imageUrl = req.file.path; // Cloudinary URL
-//   const user = await User.findByIdAndUpdate(
-//     req.user._id,
-//     { profilePicture: imageUrl },
-//     { new: true },
-//   );
-//   res.json({ success: true, profilePicture: user.profilePicture });
-// };
-// src/controllers/userController.js
-const upload = require("../config/multer"); // single image upload
-
-// Upload profile picture
+// @desc    Upload profile picture (Cloudinary)
+// @route   POST /api/users/profile-picture
 const uploadProfilePicture = async (req, res) => {
   try {
     if (!req.file) {
@@ -85,7 +109,7 @@ const uploadProfilePicture = async (req, res) => {
         .status(400)
         .json({ success: false, message: "No file uploaded" });
     }
-    const imageUrl = `/uploads/${req.file.filename}`;
+    const imageUrl = await uploadSingleImage(req.file, "marketplace/avatars");
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { profilePicture: imageUrl },
@@ -93,31 +117,42 @@ const uploadProfilePicture = async (req, res) => {
     ).select("-password");
     res.json({ success: true, profilePicture: user.profilePicture, user });
   } catch (error) {
+    console.error("Profile picture upload error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// @desc Get notification preferences
+// @desc    Get notification preferences
+// @route   GET /api/users/notifications
 const getNotificationSettings = async (req, res) => {
-  const user = await User.findById(req.user._id).select(
-    "notificationPreferences",
-  );
-  res.json({ success: true, preferences: user.notificationPreferences });
+  try {
+    const user = await User.findById(req.user._id).select(
+      "notificationPreferences",
+    );
+    res.json({ success: true, preferences: user.notificationPreferences });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
-// @desc Update notification preferences
+// @desc    Update notification preferences
+// @route   PUT /api/users/notifications
 const updateNotificationSettings = async (req, res) => {
-  const { email, sms, push } = req.body;
-  const user = await User.findByIdAndUpdate(
-    req.user._id,
-    {
-      notificationPreferences: { email, sms, push },
-    },
-    { new: true },
-  );
-  res.json({ success: true, preferences: user.notificationPreferences });
+  try {
+    const { email, sms, push } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { notificationPreferences: { email, sms, push } },
+      { new: true },
+    ).select("notificationPreferences");
+    res.json({ success: true, preferences: user.notificationPreferences });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
+// @desc    Update payout settings (for sellers)
+// @route   PUT /api/users/payout-settings
 const updatePayoutSettings = async (req, res) => {
   try {
     const {
@@ -136,7 +171,7 @@ const updatePayoutSettings = async (req, res) => {
         bankCode,
         teleBirrNumber,
       },
-      { new: true, runValidators: true },
+      { new: true },
     ).select("-password");
     res.json({ success: true, user });
   } catch (error) {
