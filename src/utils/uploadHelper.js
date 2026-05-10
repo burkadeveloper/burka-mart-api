@@ -29,7 +29,7 @@ const uploadImages = async (files) => {
 };
 
 /**
- * Upload a single image (profile picture, single document)
+ * Upload a single image (profile picture, document, etc.)
  */
 const uploadSingleImage = async (file, folder = "marketplace/avatars") => {
   if (!file) return null;

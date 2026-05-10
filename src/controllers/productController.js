@@ -1,7 +1,9 @@
 const Product = require("../models/Product");
 const { uploadImages } = require("../utils/uploadHelper");
 
-// Create product
+// @desc    Create a new product (seller only)
+// @route   POST /api/products
+// @access  Private (seller)
 const createProduct = async (req, res) => {
   try {
     const {
@@ -31,7 +33,7 @@ const createProduct = async (req, res) => {
       seller,
       title,
       description,
-      price,
+      price: Number(price),
       category,
       images: imageUrls,
       quantity: Number(quantity),
@@ -46,7 +48,9 @@ const createProduct = async (req, res) => {
   }
 };
 
-// Get all products (public)
+// @desc    Get all products (public, with filtering & pagination)
+// @route   GET /api/products
+// @access  Public
 const getProducts = async (req, res) => {
   try {
     const {
@@ -90,7 +94,9 @@ const getProducts = async (req, res) => {
   }
 };
 
-// Get single product
+// @desc    Get single product by ID (increments view count)
+// @route   GET /api/products/:id
+// @access  Public
 const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
@@ -109,7 +115,39 @@ const getProductById = async (req, res) => {
   }
 };
 
-// Update product
+// @desc    Get featured products (isFeatured = true)
+// @route   GET /api/products/featured
+// @access  Public
+const getFeaturedProducts = async (req, res) => {
+  try {
+    const products = await Product.find({ status: "active", isFeatured: true })
+      .populate("seller", "name")
+      .populate("category")
+      .limit(8)
+      .sort({ createdAt: -1 });
+    res.json({ success: true, products });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get seller's own products (authenticated seller)
+// @route   GET /api/products/my-products
+// @access  Private (seller)
+const getMyProducts = async (req, res) => {
+  try {
+    const products = await Product.find({ seller: req.user._id })
+      .populate("category")
+      .sort({ createdAt: -1 });
+    res.json({ success: true, products });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update product (seller or admin)
+// @route   PUT /api/products/:id
+// @access  Private (seller or admin)
 const updateProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -135,7 +173,7 @@ const updateProduct = async (req, res) => {
       removedImages,
     } = req.body;
 
-    // Process existing images (keep after removals)
+    // Handle existing images (keep those not removed)
     let currentImages = product.images || [];
     if (existingImages) {
       currentImages = JSON.parse(existingImages);
@@ -147,11 +185,11 @@ const updateProduct = async (req, res) => {
 
     // Upload new images
     let newImageUrls = [];
-    if (req.files && req.files.length) {
+    if (req.files && req.files.length > 0) {
       newImageUrls = await uploadImages(req.files);
     }
 
-    const finalImages = [...currentImages, ...newImageUrls].slice(0, 5); // max 5 images
+    const finalImages = [...currentImages, ...newImageUrls].slice(0, 5); // max 5
 
     product.title = title || product.title;
     product.description = description || product.description;
@@ -171,7 +209,9 @@ const updateProduct = async (req, res) => {
   }
 };
 
-// Delete (archive) product
+// @desc    Delete (archive) product (seller or admin)
+// @route   DELETE /api/products/:id
+// @access  Private (seller or admin)
 const deleteProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -195,6 +235,8 @@ module.exports = {
   createProduct,
   getProducts,
   getProductById,
+  getFeaturedProducts,
+  getMyProducts,
   updateProduct,
   deleteProduct,
 };
